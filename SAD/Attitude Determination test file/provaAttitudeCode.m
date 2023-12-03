@@ -46,7 +46,7 @@ inc_acc = 0.75/100; % Linear error
 inc_tot = sqrt(inc_lin^2 + inc_acc^2); %Total error
 
 % weigh for statistical method
-alpha = [0.2 0.8];
+alpha = [1/30 1]; %arc (see slide)
 alpha = alpha/norm(alpha);
 
 % Definition of Magnetic Field (Dipole model)
@@ -108,106 +108,84 @@ Fe = 1358;
 c = 3e8;
 
 %% RUN SIMULATION
-out = sim(['SAD_project.slx']);
+out = sim(['provaAttitude.slx']);
 
 %% PLOTTING RESULT
 
-%%% DISTURBANCE PLOT %%%
+%%% ERROR ATTITUDE PLOT %%%
 
-% GRAVITY GRADIENT disturbance
+% Error Algebric Method
 fig1 = figure('WindowState', 'maximized');
 tiledlayout(2,3);
 nexttile
 hold on;
 grid on;
-plot(out.t, out.M_GG(:,1), '-b', 'LineWidth', 1);
-plot(out.t, out.M_GG(:,2), '-g', 'LineWidth', 1);
-plot(out.t, out.M_GG(:,3), '-r', 'LineWidth', 1);
-
+plot(out.t, out.erro_algebric_met, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' M ')
-title('GRAVITY GRADIENT')
+ylabel(' [-] ')
+title('Error Algebric Method')
 
-legend('M_{GG}x', 'M_{GG}y', 'M_{GG}z');
 
-% SOLAR PRESSURE disturbance
+% Error statistic method (quaternion)-> book version
 nexttile
 hold on;
 grid on;
-plot(out.t, out.M_SRP(:,1), '-b', 'LineWidth', 1);
-plot(out.t, out.M_SRP(:,2), '-g', 'LineWidth', 1);
-plot(out.t, out.M_SRP(:,3), '-r', 'LineWidth', 1);
+plot(out.t, out.erro_statistic_quat, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' M [N]')
-title('SOLAR PRESSURE')
+ylabel(' [-] ')
+title('Error statistic method (quaternion book version)')
 
-legend('M_{SRP}x', 'M_{SRP}y', 'M_{SRP}z');
-
-% MAGNETIC FIELD
-% History of disturbance
+% Error statistic method (gibbs vector)
 nexttile
 hold on;
 grid on;
-plot(out.t, out.M_b(:,1), '-b', 'LineWidth', 1);
-plot(out.t, out.M_b(:,2), '-g', 'LineWidth', 1);
-plot(out.t, out.M_b(:,3), '-r', 'LineWidth', 1);
+plot(out.t, out.erro_statistic_quat, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' M [N]')
-title('MAGNETIC FIELD')
+ylabel(' [-] ')
+title('Error statistic method (gibbs vector)')
 
-legend('M_{b}x', 'M_{b}y', 'M_{b}z');
+% UNPERTURBED CASE
 
-% Comparison of all disturbance
-nexttile([1 3])
+% UNPERTURBED Error Algebric Method
+nexttile
 hold on;
 grid on;
-semilogy(out.t, vecnorm(out.M_GG,2,2), '-b', 'LineWidth', 1);
-semilogy(out.t, vecnorm(out.M_SRP,2,2), '-g', 'LineWidth', 1);
-semilogy(out.t, vecnorm(out.M_b,2,2), '-r', 'LineWidth', 1);
+plot(out.t, out.erro_algebric_met_unp, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' M [N]')
-title('History of disturbance')
+ylabel(' [-] ')
+title('UNPERTURBED Error Algebric Method')
 
-legend('M_{GG}', 'M_{SRP}', 'M_{b}');
 
-%%% OTHER PLOT %%%
-
-% History of Magnetic Field B(r)
-fig2 = figure;
+% UNPERTURBED Error statistic method (quaternion)-> book version
+nexttile
 hold on;
 grid on;
-plot(out.t, 1e9.*out.bn(:,1), '-b', 'LineWidth', 1);
-plot(out.t, 1e9.*out.bn(:,2), '-g', 'LineWidth', 1);
-plot(out.t, 1e9.*out.bn(:,3), '-r', 'LineWidth', 1);
-plot(out.t, 1e9.*vecnorm(out.bn,2,2), '-r', 'LineWidth', 1);
+plot(out.t, out.erro_statistic_quat_unp, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' B [nT]')
-title('History of Magnetic Field B(r)')
+ylabel(' [-] ')
+title('UNPERTURBED Error statistic method (quaternion book version)')
 
-legend('Bx', 'By', 'Bz', 'Norm(B)');
-
-% ATTITUDE ERROR
-% plot figure of w
-fig3 = figure();
-wx_plot = plot(out.t, out.wb(:,1), '-b', 'LineWidth', 1);
-hold on
-grid on
-wy_plot = plot(out.t, out.wb(:,2), '-c', 'LineWidth', 1);
-wz_plot = plot(out.t, out.wb(:,3), '-g', 'LineWidth', 1);
+% UNPERTURBED Error statistic method (gibbs vector)
+nexttile
+hold on;
+grid on;
+plot(out.t, out.erro_statistic_quat_unp, '-b', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' w [rad/s] ')
-title('Attitude Error')
+ylabel(' [-] ')
+title('UNPERTURBED Error statistic method (gibbs vector)')
 
-legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
+%%% Other plot %%%
 
 % MAG-3 SENSOR
 fig4 = figure;
+tiledlayout(1,2);
+nexttile
 hold on;
 grid on;
 plot(out.t, 1e9.*out.b_sensor(:,1), '-b', 'LineWidth', 1);
@@ -221,24 +199,21 @@ title('Magnetic Field B(r) by sensor')
 
 legend('Bx', 'By', 'Bz', 'Norm(B)');
 
-% plot figure of w
-fig5 = figure();
-wx_plot = plot(out.t, out.w(:,1), '-b', 'LineWidth', 1);
-hold on
-grid on
-wy_plot = plot(out.t, out.w(:,2), '-c', 'LineWidth', 1);
-wz_plot = plot(out.t, out.w(:,3), '-g', 'LineWidth', 1);
+% SUN SENSOR
+nexttile
+hold on;
+grid on;
+plot(out.t, out.sun_sensor(:,1), '-b', 'LineWidth', 1);
+plot(out.t, out.sun_sensor(:,2), '-g', 'LineWidth', 1);
+plot(out.t, out.sun_sensor(:,3), '-r', 'LineWidth', 1);
+plot(out.t, vecnorm(out.sun_sensor,2,2), '-c', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' w [rad/s] ')
-title('Angulary Velocity in time')
+ylabel(' r [Km]')
+title('Direction of sun by sensor')
 
-legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
-%% ANIMATION PLOT
+legend('Bx', 'By', 'Bz', 'Norm(B)');
 
-% ancora da sistemare 
-%{
-    ground Track
-    plot Orbit
-    Animation of satellite
-%}
+
+
+
