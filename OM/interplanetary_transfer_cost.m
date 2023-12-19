@@ -1,6 +1,6 @@
 function [dv, delta_T] = interplanetary_transfer_cost(t_dep, t_arr, dep_planet, arr_planet, ind)
 %
-% INPUT
+% INPUTS
 % dep_planet    Planet where the transfer starts
 %
 % arr_planet    Planet where the transfer ends
