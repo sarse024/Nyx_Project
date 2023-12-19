@@ -51,7 +51,7 @@ n_norm = norm(n_vect);
 %RAAN (Ascensione retta del nodo ascendente)
 if abs(i) <= toll
     OM = 0; %avoid singularity
-    n_vec = [1, 0, 0]';
+    n_vect = [1, 0, 0]';
     n_norm = 1;
 elseif n_vect(2)>=0
     OM = acos(n_vect(1)/n_norm);
@@ -64,7 +64,7 @@ e_norm = norm(e_vect);
 if(abs(e) <= toll)
     om = 0;
     e = 0;
-    e_vect = n_vec;
+    e_vect = n_vect;
 elseif e_vect(end)>=0
     om=acos(dot(n_vect,e_vect)/(n_norm*e_norm));
 else

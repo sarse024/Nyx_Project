@@ -33,6 +33,8 @@ om = 60; %[deg]
 th = 0;
 kep0 = [a, e, deg2rad(i), deg2rad(OM), deg2rad(om), deg2rad(th)];
 
+%% Codice Aaron ground TRACK E ROBA varia
+
 %pert
 mu = astroConstants(13);
 rE = astroConstants(23);
@@ -40,7 +42,7 @@ j2 = astroConstants(9);
 [r,v] = kep2car(a,e,i/180*pi,OM,om,th,astroConstants(13));    %[m;m/s]
 r_v_vect = [r;v];         
 plot_orbit_pert(mu,rE,j2,CD,AM,r_v_vect,1000);
-%%
+
 %unperturbed orbit plot
 mu = astroConstants(13);  %[km^3/s^2]
 [r,v]=kep2car(a,e,i/180*pi,OM,om,th,mu);
@@ -67,11 +69,11 @@ t_vect=0:24*3600;       %[s]
 figure();
 [alpha,delta,long,lat]=groundTrack(r_v_vect,thG0,t_vect,mu,wE);
 
-%% CAR METHOD
+%% DATA FOR BOTH PERTURBATION
 
 % Set physical parameters (e.g., gravitational parameter of the primary, J2, etc.)
 N = 100000;
-N_orbit = 1000;
+N_orbit = 10; 
 N_filter = N/10;
 
 T_period = 2*pi*sqrt( kep0(1)^3/mu); % Orbital period [s]
@@ -98,13 +100,15 @@ parameters.kep = kep0;
 % Set ODE solver options (e.g., RelTol, AbsTol): options
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
 
+%% CAR METHOD
+% integration in CAR form  
 tic
 [T, S] = ode113( @(t,s) eq_motion_CAR( t, s, @(t,s) acc_pert_fun_CAR(t,s,parameters), parameters ), tspan, s0, options);
 time_int_car = toc;
 
 fprintf('\nIntegration time of car integration %4.2f s \n', time_int_car)
-%%
-% Analyse and plot the results
+
+%% Analyse and plot the results in CAR
 figure()
 Terra3d
 plot3( S(:,1), S(:,2), S(:,3), '-' )
@@ -113,34 +117,32 @@ title('Two-body problem orbit');
 axis equal;
 grid on;
 
-%%
+% Conversion of cartesian state vector matrix in keplerian 
 kep_matrix = zeros(length(S), 6);
 
 for i = 1:length(S) 
     kep = car2kepRAD(S(i,1:3), S(i,4:6), mu);
     kep_matrix(i,:) = kep;
 end
+
+% Change of Periapsis and Pericenter
 rp_CAR =  kep_matrix(:,1).*((ones(length(S),1) - kep_matrix(:,2)))- rE*ones(length(S),1);
 rp_CAR = movmean(rp_CAR, N_filter);
 
+%
 ra_CAR =  kep_matrix(:,1).*((ones(length(S),1) + kep_matrix(:,2)))- rE*ones(length(S),1);
 ra_CAR = movmean(ra_CAR, N_filter);
 
-% filtering 
-a_filter = movmean(kep_matrix(:,1), N_filter);
-e_filter = movmean(kep_matrix(:,2), N_filter);
-i_filter = movmean(kep_matrix(:,3), N_filter);
-OM_filter = movmean(kep_matrix(:,4), N_filter);
-om_filter = movmean(kep_matrix(:,5), N_filter);
-th_filter = movmean(kep_matrix(:,6), N_filter);
-%%
+% Study influence of acceleration during orbit
 acc = zeros(length(S),2);
+
 % Calculation of acceleration part
 for i = 1:length(S)
     [acc_sum, acc_drag, acc_j2] = acc_pert_fun_CAR(0, S(i,:), parameters);
     acc(i,:) = [norm(acc_drag), norm(acc_j2)];
 end
 
+% plot of acceleration effect
 figure
 semilogy(tspan, acc)
 hold on
@@ -150,7 +152,7 @@ legend('Drag', 'J2', 'Drag (filtered)', 'J2 (filtered)')
 title('Module of acceleration during time')
 
 %% movie of change orbit
-
+%{
 % detect when the SC complete a full orbit
 a = ischange(rad2deg(kep_matrix(:,6)), 'Linear', 'MaxNumChanges', N_orbit); %understan when there is a big variation between two consecutive point
 index = find(a,N_orbit); % find all position of the variatios point
@@ -183,27 +185,44 @@ delete(orbit);
 j = index(N_orbit - 1);
 orbit = plot3(S(j:end,1), S(j:end,2), S(j:end,3), '-g', 'LineWidth',3);
 legend([orbit0, orbit], 'Initial Orbit', 'Final Orbit');
-
+%}
 
 %% GAUSS METHOD
 
-%state vector
+% Set Initial condition of keplerian elements 
 s0 = kep0;
 
-tic
 % Numerical integration of the equations of motion
+tic
 [T, S] = ode113( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
 time_int_gauss = toc;
 
 fprintf('\nIntegration time of car integration %4.2f s \n', time_int_gauss)
 
-% restrict f in 0 to 360
-S(:,end) = mod(S(:,2), 2*pi);
+%% FILTRATION OF GAUSS METHOD
+
+% filter
+a_filter = movmean(S(:,1), N_filter);
+e_filter = movmean(S(:,2), N_filter);
+i_filter = rad2deg(wrapToPi(movmean(S(:,3), N_filter)));
+OM_filter = rad2deg(wrapTo2Pi(movmean(S(:,4), N_filter)));
+om_filter = rad2deg(wrapTo2Pi(movmean(S(:,5), N_filter)));
+th_filter = rad2deg(movmean(S(:,6), N_filter));
+
+% wrap angle between 0 and 2pi
+S(:,3) = wrapToPi(S(:,3)); % inclination
+S(:,4) = wrapTo2Pi(S(:,4)); % OM
+S(:,5) = wrapTo2Pi(S(:,5)); % om
+
+% unwrap th for car integration
+kep_matrix(:,end) = unwrap(kep_matrix(:,end)) -2*pi;
 
 %% figure and comparison
 
-%adjust tspan
+%adjust tspan 
 tspan = tspan./T_period;
+
+% plot all keplerian orbit variation and filter
 figure();
 tiledlayout(2,3);
 title('Keplerian change by perturbation')
@@ -282,7 +301,7 @@ nexttile
 hold on;
 grid on;
 plot( tspan, rad2deg(kep_matrix(:,6)), '-' )
-plot( tspan, mod(rad2deg(S(:,6)), 360), '-r' )
+plot( tspan, rad2deg(S(:,6)), '-r' )
 plot( tspan, th_filter, '-y' )
 xlabel('time [T]');
 ylabel('f [deg]');
@@ -293,17 +312,18 @@ legend('Cartesian', 'Gauss', 'Filtered')
 %% comparison error
 figure()
 grid on;
-err = abs((kep_matrix(:,1:5)-S(:,1:5)));
+err = abs((kep_matrix(:,1:end)-S(:,1:end)));
 semilogy( tspan, err, '-' )
 grid on
-legend('a','e','i','OM','om')
+legend('a','e','i','OM','om', 'th')
 xlabel('time [T]');
 ylabel('err [-]');
 title('Error from GAUSS and CAR method')
 
+
+%% plot Change of Periapsis and apocenter (for drag analysis)
 figure()
 grid on
-
 plot(tspan, rp_CAR)
 hold on
 plot(tspan, ra_CAR)
@@ -352,13 +372,36 @@ legend('Cartesian', 'Gauss')
 
 % cose da fare:
 %{
-- Creare il movie va inserito exportgif
+- Creare il movie va inserito exportgif 
 - Provare ad implementare car usando quella di aaron
 - Capire altri filtri e aggiungerli -> da vedere con vale
-- Problema con gli angoli negativi -> possibili problemi su lunghi anni
-- Provare come output un confronto fra le accelerazioni
 - Cercare quache dato reale
 - Studio sul lungo periodo
+%}
+
+%%
+
+%{
+% verifica accelerazioni sistema di riferimento
+kep0
+a_CAR = acc_pert_fun_CAR(5, s0, parameters)
+
+a_RWS = acc_pert_fun_RWS(5, kep0, parameters)
+
+om = kep0(6) + kep0(5);
+
+OM = kep0(4);
+
+i = kep0(3);
+
+Rot_mat=[cos(om)*cos(OM)-sin(om)*sin(OM)*cos(i), ...  
+    -sin(om)*cos(OM)-cos(om)*cos(i)*sin(OM), sin(i)*sin(OM); sin(OM)*cos(om)+...
+    sin(om)*cos(OM)*cos(i),-sin(om)*sin(OM)+cos(om)*cos(i)*cos(OM), -sin(i)*cos(OM);...
+    sin(om)*sin(i), cos(om)*sin(i), cos(i)];
+
+test = Rot_mat'*a_CAR
+
+err = a_RWS - test
 %}
 
 
