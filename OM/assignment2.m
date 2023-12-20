@@ -39,9 +39,11 @@ kep0 = [a, e, deg2rad(i), deg2rad(OM), deg2rad(om), deg2rad(th)];
 mu = astroConstants(13);
 rE = astroConstants(23);
 j2 = astroConstants(9);
+t_sid = 23*60*60 + 56*60 +4;
+wE = 2*pi/t_sid;          %[rad/s] 
 [r,v] = kep2car(a,e,i/180*pi,OM,om,th,astroConstants(13));    %[m;m/s]
 r_v_vect = [r;v];         
-plot_orbit_pert(mu,rE,j2,CD,AM,r_v_vect,1000);
+plot_orbit_pert(mu,rE,j2,CD,AM,r_v_vect,1000,wE);
 
 %unperturbed orbit plot
 mu = astroConstants(13);  %[km^3/s^2]
@@ -49,7 +51,7 @@ mu = astroConstants(13);  %[km^3/s^2]
 r_v_vect=[r;v];         %[m;m/s]
 odefun=@(t,y) [y(4:6);-mu/norm(y(1:3))^3*y(1:3)]; 
 options=odeset('RelTol',1e-13,'AbsTol',1e-14);
-[T,Y]=ode89(odefun,[0,2*pi*sqrt(a^3/mu)],r_v_vect,options);
+[~,Y]=ode89(odefun,[0,2*pi*sqrt(a^3/mu)],r_v_vect,options);
 figure()
 Terra3d;
 hold on;
@@ -60,14 +62,12 @@ zlabel('Z[km]');
 axis equal;
 grid on;
 
-%unperturbed orbit ground track
-wE=2*pi/86164;          %[rad/s]
-[r,v]=kep2car(a,e,i/180*pi,OM,om,th,mu);
-r_v_vect=[r;v];         %[m;m/s]
+%% GROUND TRACKS
+
 thG0=0;                 %[rad]
 t_vect=0:24*3600;       %[s]
 figure();
-[alpha,delta,long,lat]=groundTrack(r_v_vect,thG0,t_vect,mu,wE);
+[alpha,delta,long,lat]=groundTrack(r_v_vect,kep0,thG0,t_vect,mu,wE,k,m);
 
 %% DATA FOR BOTH PERTURBATION
 
