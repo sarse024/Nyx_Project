@@ -26,28 +26,10 @@ vel_sc = s(4:6);          %[Km/s] velocity of spacecraft
 
 % relative velocity between sc and air (neglecting wind)
 vel_relative = vel_sc - cross(wE,r_sc);    %DA CAMBIARE WE è UN VETTORE STRANO
+uv = vel_relative/norm(vel_relative);
 
 % calculate acc due to drag in tangential normal refernce frame (TNH)
-acc_drag = - 0.5*rho_find(h)*norm(vel_relative)*CD*AM*vel_relative; 
-
-%{
-% Rotate to cartesian (ECI) reference frame
-% step 1: TNH to periforcal orbital frame (PF)
-gamma = atan2(e*sin(th), 1 + e*cos(th)); %flight_path_angle
-
-%step 2: PF to ECI
-Rot_mat = [cos(gamma), sin(gamma), 0; -sin(gamma), cos(gamma) 0; 0, 0, 1];
-acc_drag = Rot_mat*acc_drag;
-
-% rotation matrix from PF to ECI
-Rot_mat=[cos(om)*cos(OM)-sin(om)*sin(OM)*cos(i), ...  
-    -sin(om)*cos(OM)-cos(om)*cos(i)*sin(OM), sin(i)*sin(OM); sin(OM)*cos(om)+...
-    sin(om)*cos(OM)*cos(i),-sin(om)*sin(OM)+cos(om)*cos(i)*cos(OM), -sin(i)*cos(OM);...
-    sin(om)*sin(i), cos(om)*sin(i), cos(i)];
-
-%vettori posizione e velocità nel sistema ECI
-acc_drag = Rot_mat'*acc_drag;
-%}
+acc_drag = - 0.5*rho_find(h)*(norm(vel_relative)*1000)^2*CD*AM*uv; 
 
 % J2 modelling in Cartesian rf
 j2 = parameters.j2;
@@ -58,6 +40,6 @@ acc_j2 = [r_sc(1)/norm(r_sc)*(5*r_sc(3)^2/norm(r_sc)^2-1);
 acc_j2 = 3/2*j2*mu*rE^2/norm(r_sc)^4*acc_j2; 
 
 % sum of all perturbations in Cartesian rf
- acc_pert_vec = acc_j2 + acc_drag;
+ acc_pert_vec = acc_j2 + acc_drag/1000;
 
 end

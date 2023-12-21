@@ -44,7 +44,7 @@ wE = 2*pi/t_sid;          %[rad/s]
 
 % Set physical parameters (e.g., gravitational parameter of the primary, J2, etc.)
 N = 100000;
-N_orbit = 1000; 
+N_orbit = 10; 
 N_filter = N/10;
 
 T_period = 2*pi*sqrt( kep0(1)^3/mu); % Orbital period [s]
@@ -72,6 +72,9 @@ parameters.kep = kep0;
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
 
 %% Codice Aaron ground TRACK E ROBA varia
+
+plot_orbit_pert(mu,rE,j2,CD,AM,s0,1000,wE);
+
 %unperturbed orbit plot
 odefun=@(t,y) [y(4:6);-mu/norm(y(1:3))^3*y(1:3)]; 
 [~,Y]=ode89(odefun,[0,2*pi*sqrt(a^3/mu)],s0,options);
@@ -430,8 +433,7 @@ th_0 = eph(1,9);
 
 kep0 = [a_0, e_0, i_0, OM_0, om_0, th_0];
 s0 = kep0;
-time = 27*24*60*60;
-tspan = linspace(0,time,length(a_eph));
+tspan = 0:length(a_eph);
 
 % Propagating the orbit
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
@@ -441,41 +443,7 @@ time_int_gauss = toc;
 
 fprintf('\nIntegration time of car integration %4.2f s \n', time_int_gauss)
 
-figure()
-tiledlayout(2,3);
-nexttile
 plot(a_eph)
 hold on
 plot(S(:,1))
 title('Semi-major axis')
-legend('From ephemerides','Propagated')
-nexttile
-plot(e_eph)
-hold on
-plot(S(:,2))
-title('Eccentricity')
-legend('From ephemerides','Propagated')
-nexttile
-plot(i_eph)
-hold on
-plot(S(:,3))
-title('Inclination')
-legend('From ephemerides','Propagated')
-nexttile
-plot(OM_eph)
-hold on
-plot(S(:,4))
-title('Right ascention of the ascenting node')
-legend('From ephemerides','Propagated')
-nexttile
-plot(om_eph)
-hold on
-plot(S(:,5))
-title('Argument of the pericenter')
-legend('From ephemerides','Propagated')
-nexttile
-plot(th_eph)
-hold on
-plot(S(:,6))
-title('True anomaly')
-legend('From ephemerides','Propagated')

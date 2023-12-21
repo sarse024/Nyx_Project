@@ -28,9 +28,10 @@ AM = parameters.drag.AM;         %[m^2/kg]
 vel_relative = vel_sc - cross(wE,r_sc);  
 
 vel_relative = [norm(vel_relative), 0, 0]'; %change velocity in TNH
+uv = vel_relative/norm(vel_relative);
 
 % calculate acc due to drag in tangential normal refernce frame (TNH)
-acc_drag = - 0.5*rho_find(altitude)*norm(vel_relative)*CD*AM*vel_relative; 
+acc_drag = - 0.5*rho_find(altitude)*(norm(vel_relative)*1000)^2*CD*AM*uv; 
 
 % TNH to Radial trasversal out of plane frame (RSW)
 v = norm(vel_sc);
@@ -46,6 +47,6 @@ acc_j2 = [1-3*sin(i)^2*sin(th+om)^2;
 acc_j2 = -3/2*j2*mu*rE^2/norm(r_sc)^4*acc_j2; 
 
 % sum of all perturbations in RWS rf
-acc_pert_vec = acc_j2 + acc_drag;
+acc_pert_vec = acc_j2 + acc_drag/1000;
 
 end
