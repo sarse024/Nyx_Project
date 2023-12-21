@@ -402,6 +402,19 @@ Rot_mat=[cos(om)*cos(OM)-sin(om)*sin(OM)*cos(i), ...
 test = Rot_mat'*a_CAR
 
 err = a_RWS - test
+
+
+
+Possible True data: 
+39369 	DANDE DEB (LAB)	2013-055AC	DEBRIS	US	2013-09-29	AFWTR		94.25	inclin = 80.95 	675	290	MEDIUM
+TLE: 1 39369U 13055AC  23353.47960201  .00102165  13047-5  10990-2 0  9995
+     2 39369  80.9520 250.3014 0280319  37.9799 324.0837 15.27977448536733
+
+DANDE DEB (LAB)                 SATELLITE PROGETTO
+          6859          a                6846
+     0.0273             e                0.0298
+         80.95          i                80.2068      
+
 %}
 
 
