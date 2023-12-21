@@ -11,10 +11,10 @@ w_E = deg2rad(15.04)/60/60;
 
 % Orbit satellite data
 a = 20000 + R_E; %km
-e = 0.001;
-i = deg2rad(60); 
-OM = deg2rad(40); 
-om = deg2rad(20); 
+e = 0.0001;
+i = deg2rad(90); 
+OM = deg2rad(0); 
+om = deg2rad(0); 
 th0 = deg2rad(0); 
 kep = [a,e,i,OM,om,th0];
 
@@ -95,6 +95,9 @@ r = 1e-2*[10, 0, 0;
     0, 0, -45];
 
 CMC_position = [0,0,0]; % applied rigid shift
+
+% Horizon sensor 
+horizon_cone_limit = deg2rad(67);
 
 % Solar pressure data
 r1 = r(:,1) + CMC_position(1).*ones(10,1);
