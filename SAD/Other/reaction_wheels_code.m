@@ -27,7 +27,7 @@ M_c = [1 0 0]';
 Ix = 4.350; %[kg*m^2]
 Iy = 4.3370 ; %[kg*m^2]
 Iz = 3.6640; %[kg*m^2]
-I_RW = 2*10^(-3); %[kg*m^2]
+I_RW = 1*10^(-5); %[kg*m^2]
 I = [Ix 0 0; 0 Iy 0; 0 0 Iz];
 I_vector_RW  = [I_RW I_RW I_RW]';
 I_inv = inv(I);
@@ -73,8 +73,8 @@ xlabel(' time [s] ')
 ylabel(' w [rad/s] ')
 title('Reaction Wheel Angulary Velocity in time')
 
-legend([wx_plot, wy_plot, wz_plot, w_lim], 'wx', 'wy', 'wz', 'Saturation limit');
-%%
+legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
+%
 % plot figure Torque due to RW
 fig5 = figure();
 wx_plot = plot(out.t, out.M_actuator(:,1), '-b', 'LineWidth', 1);

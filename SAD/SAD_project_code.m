@@ -9,24 +9,26 @@ R_E = astroConstants(23);
 mu_E = astroConstants(13);
 w_E = deg2rad(15.04)/60/60;
 
-% Orbit satellite data
-a = 20000 + R_E; %km
-e = 0.001;
-i = deg2rad(60); 
-OM = deg2rad(40); 
-om = deg2rad(20); 
+% Orbit satellite data from space-track
+%TLE 1 43792U 18099AL  23355.11707279  .00003582  00000-0  30335-3 0  9999
+%TLE 2 43792  97.5473  50.7464 0011241 206.3209 153.7444 14.98567371275372
+a = 575 + R_E; %km
+e = 0.0011241;
+i = deg2rad(97.55); 
+OM = deg2rad(50.7464); 
+om = deg2rad(206.3209); 
 th0 = deg2rad(0); 
 kep = [a,e,i,OM,om,th0];
 
 % Other orbit satellite data
 p = a*(1-e^2);
 n_e = sqrt(mu_E/a^3);
-T = 2*pi/n_e;
+period = 2*pi/n_e;
 DCM_eci_per = rotationMatrix(rad2deg(i),rad2deg(OM), rad2deg(om));
 [r0, v0] = kep2carRAD(kep,mu_E);
 car0 = [r0;v0];
 
-% Sun data for ephemerides
+% Sun data for ephemerides DA CAMBIARE IN BASE AL BLOCCO !!!!!!
 date0 = [2023 12 25 0 0 0]; %date [year month day h m s]
 MJD2000_initial = date2mjd2000(date0);
 epsilon = deg2rad(23.45);
@@ -35,9 +37,9 @@ epsilon = deg2rad(23.45);
 
 % Time definition
 t0 = 0;
-tf = 200;
-t_step = 0.01;
-ts_sensor = t_step;
+tf = period;
+t_step = 0.01; %maybe change
+ts_sensor = t_step*10;
 
 % MAG-3 sensor data and error
 FS = 800e-9; %Full scale value
@@ -47,65 +49,84 @@ inc_tot = sqrt(inc_lin^2 + inc_acc^2); %Total error
 
 % weigh for statistical method
 alpha = [0.2 0.8];
-alpha = alpha/norm(alpha);
 
 % Definition of Magnetic Field (Dipole model)
 j_b = [0.01 0.05 0.01]';
 H0 = 1e-9.*[-29404.8 -1450.9 4652.5]';
 
+% gyro sensor (Da sistmare)
+bias = 0.05; %[deg/h]
+bias = bias*(pi/180)*(1/3600); %[rad/s]
+bias = bias*[1 1 1]';
+ts = 0.1;
+ARW = 0.007; %[deg/sqrt(h)]
+ARW = ARW*(pi/180)*(1/60)*(1/sqrt(ts)); %[rad/sqrt(h)]
+ARW = ARW*[1 1 1]';
+
+% Horizon sensor 
+horizon_cone_limit = deg2rad(67);
+
+% Reaction Wheel DATA (Da sistemare)
+I_RW = 1*10^(-5); %[kg*m^2]
+I_vector_RW  = [I_RW I_RW I_RW]';
+omega_0 = [0 0 0]'; %[rad/s]
+matrix_RW_config = eye(3);
+matrix_RW_config_inv = inv(matrix_RW_config);
+w0_RW = [0 0 0];
+h_r_0 = [0,0,0]';
+RPM_max_RW = 5035;
+wMax_RW = 2*pi * RPM_max_RW / 60;
+
+% 
+
 % ----------- Initialization of S/C ------------------
 % Principal moments of inertia
-Ix = 0.040; %kg m^2
-Iy = 0.060; %kg m^2
-Iz = 0.10; %kg m^2
-I =  [Ix, 0, 0; 0, Iy, 0; 0, 0, Iz];
+h_dim = 0.66; %[m] heigth dimension
+l_dim = 0.33; %[m] base dimension of square
+mass = 50; %[Kg]
+Ix = 4.350; %[kg*m^2]
+Iy = 4.3370 ; %[kg*m^2]
+Iz = 3.6640; %[kg*m^2]
+I =  5/12.*diag([Ix Iy Iz]);
 I_inv = inv(I);
 
 % Initial Angular Velocity Conditions
 wx0 = 1e-4; %rad/s
 wy0 = 1e-4; %rad/s
 wz0 = 0.055; %rad/s
-w_r = 0; %rad/s
 w0 = [wx0 wy0 wz0]'; %vector of Initial Angular Velocity
 
 % Initial quaternion position
 q0 = [0 0 0 1];
 
-% Body configuration
+% Body configuration 66x33x33 cm mass = 50 kg
 BODY = [1, 0, 0;
         0, 1, 0;
         -1,0, 0;
         0, -1, 0;
         0, 0, +1;
-        0, 0, -1;
-        1, 0, 0;
-        -1, 0, 0;
-        +1, 0, 0;
-        -1, 0, 0];
+        0, 0, -1];
 
+% point of application of F SRP on each body face (DA SISTEMARE)
 r = 1e-2*[10, 0, 0;
     0, 10, 0;
     -10,0, 0;
     0, -10, 0;
     0, 0, 15;
-    0, 0, -15;
-    0, 0, 45;
-    0, 0, 45;
-    0, 0, -45;
-    0, 0, -45];
+    0, 0, -15];
 
 CMC_position = [0,0,0]; % applied rigid shift
 
 % Solar pressure data
-r1 = r(:,1) + CMC_position(1).*ones(10,1);
-r2 = r(:,2) + CMC_position(2).*ones(10,1);
-r3 = r(:,3)+ CMC_position(3).*ones(10,1);
-A1 = ones(length(BODY),1);
-A = 1e-2.*[6, 6, 6, 6, 4, 4, 12, 12, 12, 12]';
-ps = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.1, 0.1, 0.1, 0.1]';
-pd = 0.1.*A1;
+r1 = r(:,1) + CMC_position(1).*ones(6,1);
+r2 = r(:,2) + CMC_position(2).*ones(6,1);
+r3 = r(:,3)+ CMC_position(3).*ones(6,1);
+one_vector_body = ones(length(BODY),1);
+area_face = [h_dim*l_dim, h_dim*l_dim, h_dim*l_dim, h_dim*l_dim, l_dim^2, l_dim^2]';
+ps = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]';
+pd = 0.1.*one_vector_body;
 Fe = 1358;
-c = 3e8;
+c = 3e8; % [m/s]
 
 %% RUN SIMULATION
 out = sim(['SAD_project.slx']);
