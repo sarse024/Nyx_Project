@@ -399,39 +399,41 @@ err = a_RWS - test
 
 
 Possible True data: 
-39369 	DANDE DEB (LAB)	2013-055AC	DEBRIS	US	2013-09-29	AFWTR		94.25	inclin = 80.95 	675	290	MEDIUM
-TLE: 1 39369U 13055AC  23353.47960201  .00102165  13047-5  10990-2 0  9995
-     2 39369  80.9520 250.3014 0280319  37.9799 324.0837 15.27977448536733
+39369 	DANDE DEB (LAB)	2013-055AC	DEBRIS	US	2013-09-29	AFWTR 
+PERIOD = 94.22 min INCLINATION = 80.95 deg APOGEE = 672 km PERIGEE = 290 km
 
 DANDE DEB (LAB)                 SATELLITE PROGETTO
-          6859          a                6846
-     0.0273             e                0.0298
-         80.95          i                80.2068      
+     6862               a_0             6846
+     0.02982            e_0             0.0298
+     80.81916           i_0             80.2068      
 
 %}
 
-data = importdata('DANDE_DEB.txt');
-eph = data.data;
+DANDE = importdata('DANDE_DEB.txt');
 
-a_eph = eph(:,10);
-e_eph = eph(:,1);
-i_eph = eph(:,3);
-OM_eph = eph(:,4);
-om_eph = eph(:,5);
-th_eph = eph(:,9);
+eph = DANDE.data;
 
 % Initial conditions
-a_0 = eph(1,10);
-e_0 = eph(1,1);
-i_0 = eph(1,3);
-OM_0 = eph(1,4);
-om_0 = eph(1,5);
-th_0 = eph(1,9);
+a_0 = eph(21,10);
+e_0 = eph(21,1);
+i_0 = deg2rad(eph(21,3));
+OM_0 = deg2rad(eph(21,4));
+om_0 = deg2rad(eph(21,5));
+th_0 = deg2rad(eph(21,9));
 
 kep0 = [a_0, e_0, i_0, OM_0, om_0, th_0];
 s0 = kep0;
-time = 27*24*60*60;
-tspan = linspace(0,time,length(a_eph));
+
+% Values from ephemerides
+a_eph = eph(21:end,10);
+e_eph = eph(21:end,1);
+i_eph = eph(21:end,3);
+OM_eph = eph(21:end,4);
+om_eph = eph(21:end,5);
+th_eph = eph(21:end,9);
+
+time = 31*24*60*60;
+tspan = linspace(0,time,length(a_eph)-1);
 
 % Propagating the orbit
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
@@ -439,43 +441,55 @@ tic
 [T, S] = ode113( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
 time_int_gauss = toc;
 
-fprintf('\nIntegration time of car integration %4.2f s \n', time_int_gauss)
+fprintf('\nIntegration time of Gauss integration %4.2f s \n', time_int_gauss)
 
 figure()
 tiledlayout(2,3);
 nexttile
-plot(a_eph)
+plot(a_eph(21:end,:))
 hold on
 plot(S(:,1))
 title('Semi-major axis')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('a [km]')
 nexttile
-plot(e_eph)
+plot(e_eph(21:end,:))
 hold on
 plot(S(:,2))
 title('Eccentricity')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('e [-]')
 nexttile
-plot(i_eph)
+plot(i_eph(21:end,:))
 hold on
-plot(S(:,3))
+plot(rad2deg(S(:,3)))
 title('Inclination')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('i [deg]')
 nexttile
-plot(OM_eph)
+plot(OM_eph(21:end,:))
 hold on
-plot(S(:,4))
+plot(rad2deg(S(:,4)))
 title('Right ascention of the ascenting node')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('OM [deg]')
 nexttile
-plot(om_eph)
+plot(om_eph(21:end,:))
 hold on
-plot(S(:,5))
+plot(rad2deg(S(:,5)))
 title('Argument of the pericenter')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('om [deg]')
 nexttile
-plot(th_eph)
+plot(th_eph(21:end,:))
 hold on
-plot(S(:,6))
+plot(wrapTo360(rad2deg(S(:,6))))
 title('True anomaly')
 legend('From ephemerides','Propagated')
+xlabel('Time [h]')
+ylabel('th [deg]')
