@@ -23,19 +23,16 @@ m = 1;            %[]
 
 %drag parameters
 CD = 2.1;         %[]
-AM = 0.0043;      %[m^2/kg]
-%CD = 3;
-%AM = 10; % we see the effect of drag  
+AM = 0.0043;      %[m^2/kg]  
 
 %other keplerian elements (arbitrary)
 OM = 50; %[deg] -> più comodo per i calcoli
 om = 60; %[deg]
-th = 0;
+th = 0; %[deg]
 kep0 = [a, e, deg2rad(i), deg2rad(OM), deg2rad(om), deg2rad(th)];
 
-%% DATA FOR BOTH PERTURBATION
+%% DATA FOR BOTH PERTURBATIONS
 
-%pert
 mu = astroConstants(13);
 rE = astroConstants(23);
 j2 = astroConstants(9);
@@ -71,10 +68,13 @@ parameters.kep = kep0;
 % Set ODE solver options (e.g., RelTol, AbsTol): options
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
 
-%% Codice Aaron ground TRACK E ROBA varia
-%unperturbed orbit plot
+%% UNPERTURBED ORBIT
+% Unperturbed orbit propagation
+period = linspace(0, T_period, 1000);
 odefun=@(t,y) [y(4:6);-mu/norm(y(1:3))^3*y(1:3)]; 
-[~,Y]=ode89(odefun,[0,2*pi*sqrt(a^3/mu)],s0,options);
+[~,Y]=ode89(odefun,period,s0,options);
+
+% Unperturbed orbit plot
 figure()
 Terra3d;
 hold on;
@@ -89,9 +89,7 @@ grid on;
 %% GROUND TRACKS
 
 thG0=0;                 %[rad]
-t_vect=0:24*3600;       %[s]
-figure();
-[alpha,delta,long,lat]=groundTrack(s0,kep0,thG0,t_vect,parameters,k,m);
+[alpha,delta,long,lat]=groundTrack(s0,kep0,thG0,parameters,k,m);
 
 %% CAR METHOD
 % integration in CAR form  
@@ -99,7 +97,7 @@ tic
 [T, S] = ode113( @(t,s) eq_motion_CAR( t, s, @(t,s) acc_pert_fun_CAR(t,s,parameters), parameters ), tspan, s0, options);
 time_int_car = toc;
 
-fprintf('\nIntegration time of car integration %4.2f s \n', time_int_car)
+fprintf('\nIntegration time of Cartesian method %4.2f s \n', time_int_car)
 
 %% Analyse and plot the results in CAR
 figure()
@@ -190,7 +188,7 @@ tic
 [T, S] = ode113( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
 time_int_gauss = toc;
 
-fprintf('\nIntegration time of car integration %4.2f s \n', time_int_gauss)
+fprintf('\nIntegration time of Gauss method %4.2f s \n', time_int_gauss)
 
 %% FILTRATION OF GAUSS METHOD
 
@@ -437,11 +435,7 @@ tspan = linspace(0,time,length(a_eph)-1);
 
 % Propagating the orbit
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
-tic
 [T, S] = ode113( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
-time_int_gauss = toc;
-
-fprintf('\nIntegration time of Gauss integration %4.2f s \n', time_int_gauss)
 
 figure()
 tiledlayout(2,3);
