@@ -2,6 +2,21 @@ clear all;
 close all;
 clc;
 
+set(groot, 'defaultTextInterpreter', 'tex')
+set(groot,'defaultAxesXMinorGrid','on','defaultAxesXMinorGridMode','manual');
+set(groot,'defaultAxesYMinorGrid','on','defaultAxesYMinorGridMode','manual');
+set(groot, 'defaultLegendInterpreter', 'tex')
+set(groot, 'defaultAxesTickLabelInterpreter', 'latex')
+set(groot, 'defaultAxesFontWeight', 'bold')
+set(groot, 'defaultFigurePosition', [470, 360, 700, 430])
+set(groot, 'defaultFigureColormap', turbo(256));
+set(groot, 'defaultAxesFontName', 'Palatino Linotype', 'defaultTextFontName', 'Palatino Linotype');
+set(groot, 'defaultSurfaceEdgeAlpha', 0.3);
+set(groot, 'defaultLineLineWidth', 1);
+set(groot, 'defaultFigureColor', [1; 1; 1]);
+set(groot, 'defaultAxesColor', 'white');
+set(groot, 'defaultAxesFontSize', 10);
+
 %%%% OM PROJECT -> Assignments 2: : Planetary Explorer Mission %%%%%
 
 % Data from File
@@ -26,8 +41,8 @@ CD = 2.1;         %[]
 AM = 0.0043;      %[m^2/kg]  
 
 %other keplerian elements (arbitrary)
-OM = 50; %[deg] -> più comodo per i calcoli
-om = 60; %[deg]
+OM = 285; %[deg]
+om = 135; %[deg]
 th = 0; %[deg]
 kep0 = [a, e, deg2rad(i), deg2rad(OM), deg2rad(om), deg2rad(th)];
 
@@ -61,20 +76,19 @@ parameters.mu = mu;
 parameters.drag.CD = CD;         %[]
 parameters.drag.AM = AM;      %[m^2/kg]
 
-parameters.drag.rE = rE;         %[Km]
 parameters.j2 = astroConstants(9);
-parameters.kep = kep0;
 
 % Set ODE solver options (e.g., RelTol, AbsTol): options
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
 
 %% UNPERTURBED ORBIT
-% Unperturbed orbit propagation
+
+% Propagation
 period = linspace(0, T_period, 1000);
 odefun=@(t,y) [y(4:6);-mu/norm(y(1:3))^3*y(1:3)]; 
 [~,Y]=ode89(odefun,period,s0,options);
 
-% Unperturbed orbit plot
+% Plot
 figure()
 Terra3d;
 hold on;
@@ -86,10 +100,10 @@ title('Unperturbed orbit')
 axis equal;
 grid on;
 
-%% GROUND TRACKS
+%% GROUND TRACK
 
-thG0=0;                 %[rad]
-[alpha,delta,long,lat]=groundTrack(s0,kep0,thG0,parameters,k,m);
+thG0 = 0;                 %[rad]
+[~,~,~,~] = ground_Track(s0,kep0,thG0,parameters,k,m);
 
 %% CAR METHOD
 % integration in CAR form  
@@ -206,7 +220,7 @@ S(:,4) = wrapTo2Pi(S(:,4)); % OM
 S(:,5) = wrapTo2Pi(S(:,5)); % om
 
 % unwrap th for car integration
-kep_matrix(:,end) = unwrap(kep_matrix(:,end)) -2*pi;
+kep_matrix(:,end) = unwrap(kep_matrix(:,end));
 
 %% figure and comparison
 
@@ -431,34 +445,34 @@ om_eph = eph(21:end,5);
 th_eph = eph(21:end,9);
 
 time = 31*24*60*60;
-tspan = linspace(0,time,length(a_eph)-1);
+tspan = linspace(0,time,length(a_eph(21:end)));
 
 % Propagating the orbit
 options = odeset( 'RelTol', 1e-13, 'AbsTol', 1e-14 );
-[T, S] = ode113( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
+[T, S] = ode89( @(t,s) eq_motion_GAUSS( t, s, @(t,s) acc_pert_fun_RWS(t,s,parameters), parameters ), tspan, s0, options );
 
 figure()
 tiledlayout(2,3);
 nexttile
-plot(a_eph(21:end,:))
+plot(movmean(a_eph(21:end,:),30))
 hold on
-plot(S(:,1))
+plot(movmean(S(:,1),30))
 title('Semi-major axis')
 legend('From ephemerides','Propagated')
 xlabel('Time [h]')
 ylabel('a [km]')
 nexttile
-plot(e_eph(21:end,:))
+plot(movmean(e_eph(21:end,:),30))
 hold on
-plot(S(:,2))
+plot(movmean(S(:,2),30))
 title('Eccentricity')
 legend('From ephemerides','Propagated')
 xlabel('Time [h]')
 ylabel('e [-]')
 nexttile
-plot(i_eph(21:end,:))
+plot(movmean(i_eph(21:end,:),30))
 hold on
-plot(rad2deg(S(:,3)))
+plot(movmean(rad2deg(S(:,3)),30))
 title('Inclination')
 legend('From ephemerides','Propagated')
 xlabel('Time [h]')
@@ -480,9 +494,9 @@ legend('From ephemerides','Propagated')
 xlabel('Time [h]')
 ylabel('om [deg]')
 nexttile
-plot(th_eph(21:end,:))
+plot(movmean(th_eph(21:end,:),30))
 hold on
-plot(wrapTo360(rad2deg(S(:,6))))
+plot(movmean(wrapTo360(rad2deg(S(:,6))),30))
 title('True anomaly')
 legend('From ephemerides','Propagated')
 xlabel('Time [h]')
