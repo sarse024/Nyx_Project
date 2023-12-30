@@ -1,9 +1,10 @@
-function [Br,Bt,Bp] = magnet(r,theta,phi,days, A1, A2)
+function [Br,Bt,Bp] = magnet(r,theta,phi,days, N, A1, A2)
 % Inputs
 % r         Geocentric radius
 % theta     Latitude measured in degrees positive from equator  
 % phi       Longitude measured in degrees positive east from Greenwich
 % days      Decimal days since January 1, 2020
+% N         Order of expansion of the magnetic field model
 %
 % Outputs - magnetic field strength in local tangential coordinates
 % Br    B in radial direction
@@ -28,12 +29,18 @@ gvali = A1(:, 3); gsvi = A1(:, 4);
 hn = A2(:, 1); hm =A2(:, 2);
 hvali = A2(:, 3); hsvi = A2(:, 4);
 
-N=max(gn);
+
 g=zeros(N,N+1);
 h=zeros(N,N+1);
-for x=1:length(gn)
-        g(gn(x),gm(x)+1) = gvali(x) + gsvi(x)*days/365;
-        h(hn(x),hm(x)+1) = hvali(x) + hsvi(x)*days/365;
+%time = (days -7.3055e+03);
+time = days;
+if time < 0
+    error('the time chosen must be after January 1, 2020')
+end
+
+for x=1: sum(2:N+1)
+        g(gn(x),gm(x)+1) = gvali(x) + gsvi(x)*time/365;
+        h(hn(x),hm(x)+1) = hvali(x) + hsvi(x)*time/365;
 end
 % Initialize each of the variables
 % Br        B in the radial driection

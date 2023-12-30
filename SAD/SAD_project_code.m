@@ -9,6 +9,9 @@ R_E = astroConstants(23);
 mu_E = astroConstants(13);
 w_E = deg2rad(15.04)/60/60;
 
+% Set up for better plot
+setGraphicPlot;
+
 % Orbit satellite data from space-track
 %TLE 1 43792U 18099AL  23355.11707279  .00003582  00000-0  30335-3 0  9999
 %TLE 2 43792  97.5473  50.7464 0011241 206.3209 153.7444 14.98567371275372
@@ -31,18 +34,20 @@ car0 = [r0;v0];
 % Sun data for ephemerides DA CAMBIARE IN BASE AL BLOCCO !!!!!!
 date0 = [2023 12 25 0 0 0]; %date [year month day h m s]
 MJD2000_initial = date2mjd2000(date0);
+timeoflaunch = date2mjd2000(date0);
 epsilon = deg2rad(23.45);
+InitialTrueAnomalyOfEarth = 0;
 
 %% SIMULATION data
 
 % Time definition
 t0 = 0;
-tf = period;
-t_step = 0.01; %maybe change
+tf = 200;
+t_step = 0.1; %maybe change
 ts_sensor = t_step*10;
 
 % MAG-3 sensor data and error
-FS = 800e-9; %Full scale value
+FS = 50000e-9; %Full scale value
 inc_lin = 0.15/100; % Accuracy error
 inc_acc = 0.75/100; % Linear error
 inc_tot = sqrt(inc_lin^2 + inc_acc^2); %Total error
@@ -52,7 +57,18 @@ alpha = [0.2 0.8];
 
 % Definition of Magnetic Field (Dipole model)
 j_b = [0.01 0.05 0.01]';
-H0 = 1e-9.*[-29404.8 -1450.9 4652.5]';
+
+
+% Definition of Magnetic Field (Order model)
+A1 = importdata("igrfSg.txt");
+A2 = importdata("igrfSh.txt");
+
+% export data for dipole model
+g_10 = A1(1,3) + A1(1,4)*(timeoflaunch - 7305)/365;
+g_11 = A1(2,3) + A1(2,4)*(timeoflaunch - 7305)/365;
+h_11 = A2(2,3) + A2(2,4)*(timeoflaunch - 7305)/365;
+
+H0 = [g_10 g_11 h_11]';
 
 % gyro sensor (Da sistmare)
 bias = 0.05; %[deg/h]
@@ -106,16 +122,29 @@ BODY = [1, 0, 0;
         0, -1, 0;
         0, 0, +1;
         0, 0, -1];
+N_1 = BODY(1,:);
+N_2 = BODY(2,:);
+N_3 = BODY(3,:);
+N_4 = BODY(4,:);
+N_5 = BODY(5,:);
+N_6 = BODY(6,:);
 
 % point of application of F SRP on each body face (DA SISTEMARE)
-r = 1e-2*[10, 0, 0;
-    0, 10, 0;
-    -10,0, 0;
-    0, -10, 0;
+r = 0.5e-2*[33, 0, 0;
+    0, 33, 0;
+    -33,0, 0;
+    0, -33, 0;
     0, 0, 15;
     0, 0, -15];
+r_1 = r(1,:);
+r_2 = r(2,:);
+r_3 = r(3,:);
+r_4 = r(4,:);
+r_5 = r(5,:);
+r_6 = r(6,:);
 
-CMC_position = [0,0,0]; % applied rigid shift
+
+CMC_position = [0,0,15]*1e-2; % applied rigid shift
 
 % Solar pressure data
 r1 = r(:,1) + CMC_position(1).*ones(6,1);
@@ -123,14 +152,43 @@ r2 = r(:,2) + CMC_position(2).*ones(6,1);
 r3 = r(:,3)+ CMC_position(3).*ones(6,1);
 one_vector_body = ones(length(BODY),1);
 area_face = [h_dim*l_dim, h_dim*l_dim, h_dim*l_dim, h_dim*l_dim, l_dim^2, l_dim^2]';
-ps = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]';
-pd = 0.1.*one_vector_body;
+A_1 = area_face(1);
+A_2 = area_face(2);
+A_3 = area_face(3);
+A_4 = area_face(4);
+A_5 = area_face(5);
+A_6 = area_face(6);
+rho_s = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]';
+
+rho_s1 = rho_s(1);
+rho_s2 = rho_s(2);
+rho_s3 = rho_s(3);
+rho_s4 = rho_s(4);
+rho_s5 = rho_s(5);
+rho_s6 = rho_s(6);
+
+rho_d1 = 0.1;
+rho_d2 = 0.1;
+rho_d3 = 0.1;
+rho_d4 = 0.1;
+rho_d5 = 0.1;
+rho_d6 = 0.1;
+
 Fe = 1358;
 c = 3e8; % [m/s]
 
-%% RUN SIMULATION
-out = sim(['SAD_project.slx']);
+% Valuation of max disturbance
+Mgg_MAX = 3/2 * mu_E / a^3 *abs(Ix - Iz)
+Msrp = rho_s(1)*area_face(1)*(1+0.1)*(h_dim/4)
+%j_b = 4*10^(-3).*[area_face(1) area_face(2) area_face(end)]./mass'; %estimate from Nasa table 
 
+
+
+
+%% RUN SIMULATION
+tic
+out = sim(['SAD_project.slx']);
+toc
 %% PLOTTING RESULT
 
 %%% DISTURBANCE PLOT %%%
@@ -159,6 +217,7 @@ grid on;
 plot(out.t, out.M_SRP(:,1), '-b', 'LineWidth', 1);
 plot(out.t, out.M_SRP(:,2), '-g', 'LineWidth', 1);
 plot(out.t, out.M_SRP(:,3), '-r', 'LineWidth', 1);
+axis tight
 
 xlabel(' time [s] ')
 ylabel(' M [N]')
@@ -201,17 +260,17 @@ legend('M_{GG}', 'M_{SRP}', 'M_{b}');
 fig2 = figure;
 hold on;
 grid on;
-plot(out.t, 1e9.*out.bn(:,1), '-b', 'LineWidth', 1);
-plot(out.t, 1e9.*out.bn(:,2), '-g', 'LineWidth', 1);
-plot(out.t, 1e9.*out.bn(:,3), '-r', 'LineWidth', 1);
-plot(out.t, 1e9.*vecnorm(out.bn,2,2), '-r', 'LineWidth', 1);
+plot(out.t, 1e9.*out.bn(:,1), '-b', 'LineWidth', 2);
+plot(out.t, 1e9.*out.bn(:,2), '-g', 'LineWidth', 2);
+plot(out.t, 1e9.*out.bn(:,3), '-r', 'LineWidth', 2);
+plot(out.t, 1e9.*vecnorm(out.bn,2,2), '-c', 'LineWidth', 2);
 
 xlabel(' time [s] ')
 ylabel(' B [nT]')
 title('History of Magnetic Field B(r)')
 
 legend('Bx', 'By', 'Bz', 'Norm(B)');
-
+%%
 % ATTITUDE ERROR
 % plot figure of w
 fig3 = figure();
@@ -252,9 +311,42 @@ wz_plot = plot(out.t, out.w(:,3), '-g', 'LineWidth', 1);
 
 xlabel(' time [s] ')
 ylabel(' w [rad/s] ')
-title('Angulary Velocity in time')
+title('TRUE Angulary Velocity in time')
 
 legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
+%%
+% reaction wheel
+% plot figure of RW angular velocity
+fig6 = figure();
+tiledlayout(1,2);
+nexttile    
+wx_plot = plot(out.t, out.wr(:,1), '-b', 'LineWidth', 2);
+hold on
+grid on
+wy_plot = plot(out.t, out.wr(:,2), '-c', 'LineWidth', 2);
+wz_plot = plot(out.t, out.wr(:,3), '-g', 'LineWidth', 2);
+plot(out.t, wMax_RW*ones(length(out.t)),'-r', 'LineWidth', 1);
+w_lim = plot(out.t, -wMax_RW*ones(length(out.t)),'-r', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' w [rad/s] ')
+title('Reaction Wheel Angulary Velocity in time')
+
+legend([wx_plot, wy_plot, wz_plot, w_lim(1)], 'wx', 'wy', 'wz', 'Saturation limit');
+%
+% plot figure Torque due to RW
+nexttile    
+Mx_plot = plot(out.t, out.M_actuator(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+My_plot = plot(out.t, out.M_actuator(:,2), '-c', 'LineWidth', 1);
+Mz_plot = plot(out.t, out.M_actuator(:,3), '-g', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' M [Nm] ')
+title('Torque due to RW')
+
+legend([Mx_plot, My_plot, Mz_plot], 'Mx', 'My', 'Mz');
 %% ANIMATION PLOT
 
 % ancora da sistemare 
