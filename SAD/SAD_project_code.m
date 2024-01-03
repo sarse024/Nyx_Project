@@ -1,4 +1,4 @@
-clear all;
+clear;
 close all;
 clc;
 
@@ -42,8 +42,8 @@ InitialTrueAnomalyOfEarth = 0;
 
 % Time definition
 t0 = 0;
-tf = 200;
-t_step = 0.1; %maybe change
+tf = 100;
+t_step = 0.01; %maybe change
 ts_sensor = t_step*10;
 
 % MAG-3 sensor data and error
@@ -53,10 +53,10 @@ inc_acc = 0.75/100; % Linear error
 inc_tot = sqrt(inc_lin^2 + inc_acc^2); %Total error
 
 % weigh for statistical method
-alpha = [0.2 0.8];
+alpha = [0.2 0.8]; %da definire
 
 % Definition of Magnetic Field (Dipole model)
-j_b = [0.01 0.05 0.01]';
+j_b = [0.001 0.005 0.001]';
 
 
 % Definition of Magnetic Field (Order model)
@@ -74,16 +74,15 @@ H0 = [g_10 g_11 h_11]';
 bias = 0.05; %[deg/h]
 bias = bias*(pi/180)*(1/3600); %[rad/s]
 bias = bias*[1 1 1]';
-ts = 0.1;
 ARW = 0.007; %[deg/sqrt(h)]
-ARW = ARW*(pi/180)*(1/60)*(1/sqrt(ts)); %[rad/sqrt(h)]
+ARW = ARW*(pi/180)*(1/60)*(1/sqrt(ts_sensor)); %[rad/sqrt(h)]
 ARW = ARW*[1 1 1]';
 
 % Horizon sensor 
-horizon_cone_limit = deg2rad(67);
+horizon_cone_limit = deg2rad(70);
 
 % Reaction Wheel DATA (Da sistemare)
-I_RW = 1*10^(-5); %[kg*m^2]
+I_RW = 10; %[kg*m^2]
 I_vector_RW  = [I_RW I_RW I_RW]';
 omega_0 = [0 0 0]'; %[rad/s]
 matrix_RW_config = eye(3);
@@ -107,13 +106,14 @@ I =  5/12.*diag([Ix Iy Iz]);
 I_inv = inv(I);
 
 % Initial Angular Velocity Conditions
-wx0 = 1e-4; %rad/s
-wy0 = 1e-4; %rad/s
-wz0 = 0.055; %rad/s
+wx0 = 0.01; %rad/s
+wy0 = 0.01; %rad/s
+wz0 = 0.1; %rad/s
 w0 = [wx0 wy0 wz0]'; %vector of Initial Angular Velocity
 
 % Initial quaternion position
-q0 = [0 0 0 1];
+q0 = [0.1, -0.7, 0.51, 0.41];
+%q0 = [0, 0, 0, 1];
 
 % Body configuration 66x33x33 cm mass = 50 kg
 BODY = [1, 0, 0;
@@ -178,16 +178,13 @@ Fe = 1358;
 c = 3e8; % [m/s]
 
 % Valuation of max disturbance
-Mgg_MAX = 3/2 * mu_E / a^3 *abs(Ix - Iz)
-Msrp = rho_s(1)*area_face(1)*(1+0.1)*(h_dim/4)
+Mgg_MAX = 3/2 * mu_E / a^3 *abs(Ix - Iz);
+Msrp = rho_s(1)*area_face(1)*(1+0.1)*(h_dim/4);
 %j_b = 4*10^(-3).*[area_face(1) area_face(2) area_face(end)]./mass'; %estimate from Nasa table 
-
-
-
 
 %% RUN SIMULATION
 tic
-out = sim(['SAD_project.slx']);
+out = sim('SAD_project.slx');
 toc
 %% PLOTTING RESULT
 
