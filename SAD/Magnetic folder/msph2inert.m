@@ -14,9 +14,11 @@ function [Bx,By,Bz] = msph2inert(Br,Bt,Bp,LST,lat)
 
 % Angle conversion to radians
 lat=lat*pi/180;  LST=LST*pi/180;
+lat = pi/2-lat;
+
 % Coordinate transformation
-Bx = (Br*cos(lat)+Bt*sin(lat))*cos(LST) - Bp*sin(LST);
-By = (Br*cos(lat)+Bt*sin(lat))*sin(LST) + Bp*cos(LST);
-Bz = (Br*sin(lat)+Bt*cos(lat));
+Bx = (Br*sin(lat)+Bt*cos(lat))*cos(LST) - Bp*sin(LST);
+By = (Br*sin(lat)+Bt*cos(lat))*sin(LST) + Bp*cos(LST);
+Bz = (Br*cos(lat)-Bt*sin(lat));
 
 

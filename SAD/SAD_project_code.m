@@ -25,35 +25,36 @@ kep = [a,e,i,OM,om,th0];
 
 % Other orbit satellite data
 p = a*(1-e^2);
-n_e = sqrt(mu_E/a^3);
-period = 2*pi/n_e;
+n_earth = sqrt(mu_E/a^3);
+period = 2*pi/n_earth;
 DCM_eci_per = rotationMatrix(rad2deg(i),rad2deg(OM), rad2deg(om));
 [r0, v0] = kep2carRAD(kep,mu_E);
 car0 = [r0;v0];
 
-% Sun data for ephemerides DA CAMBIARE IN BASE AL BLOCCO !!!!!!
+% Sun data for ephemerides
 date0 = [2023 12 25 0 0 0]; %date [year month day h m s]
 MJD2000_initial = date2mjd2000(date0);
 timeoflaunch = date2mjd2000(date0);
 epsilon = deg2rad(23.45);
 InitialTrueAnomalyOfEarth = 0;
 
-%% SIMULATION data
+% SIMULATION data
 
 % Time definition
 t0 = 0;
-tf = 100;
+tf = 1200;
 t_step = 0.01; %maybe change
-ts_sensor = t_step*10;
+ts_sensor = 5*t_step;
+
 
 % MAG-3 sensor data and error
 FS = 50000e-9; %Full scale value
-inc_lin = 0.15/100; % Accuracy error
-inc_acc = 0.75/100; % Linear error
+inc_lin = 0.015/100; % Accuracy error
+inc_acc = 0.2/100; % Linear error
 inc_tot = sqrt(inc_lin^2 + inc_acc^2); %Total error
-
+%%
 % weigh for statistical method
-alpha = [0.2 0.8]; %da definire
+alpha = [1/1000 99/1000];
 
 % Definition of Magnetic Field (Dipole model)
 j_b = [0.001 0.005 0.001]';
@@ -79,20 +80,19 @@ ARW = ARW*(pi/180)*(1/60)*(1/sqrt(ts_sensor)); %[rad/sqrt(h)]
 ARW = ARW*[1 1 1]';
 
 % Horizon sensor 
-horizon_cone_limit = deg2rad(70);
+horizon_cone_limit = deg2rad(359);
 
 % Reaction Wheel DATA (Da sistemare)
-I_RW = 10; %[kg*m^2]
+I_RW = 3.32e-3; %Kg m^2
 I_vector_RW  = [I_RW I_RW I_RW]';
 omega_0 = [0 0 0]'; %[rad/s]
 matrix_RW_config = eye(3);
 matrix_RW_config_inv = inv(matrix_RW_config);
 w0_RW = [0 0 0];
 h_r_0 = [0,0,0]';
-RPM_max_RW = 5035;
+RPM_max_RW = 6500;
 wMax_RW = 2*pi * RPM_max_RW / 60;
-
-% 
+torque_max = 47.1e-3; %Nm
 
 % ----------- Initialization of S/C ------------------
 % Principal moments of inertia
@@ -106,14 +106,11 @@ I =  5/12.*diag([Ix Iy Iz]);
 I_inv = inv(I);
 
 % Initial Angular Velocity Conditions
-wx0 = 0.01; %rad/s
-wy0 = 0.01; %rad/s
-wz0 = 0.1; %rad/s
-w0 = [wx0 wy0 wz0]'; %vector of Initial Angular Velocity
+w0 = rand(3,1); %vector of Initial Angular Velocity
 
 % Initial quaternion position
-q0 = [0.1, -0.7, 0.51, 0.41];
-%q0 = [0, 0, 0, 1];
+q0 = rand(4,1);
+q0 = q0/norm(q0);
 
 % Body configuration 66x33x33 cm mass = 50 kg
 BODY = [1, 0, 0;
@@ -182,9 +179,41 @@ Mgg_MAX = 3/2 * mu_E / a^3 *abs(Ix - Iz);
 Msrp = rho_s(1)*area_face(1)*(1+0.1)*(h_dim/4);
 %j_b = 4*10^(-3).*[area_face(1) area_face(2) area_face(end)]./mass'; %estimate from Nasa table 
 
+%% state base analysis and determiation of Control Gain
+Ix = I(1,1);
+Iy = I(2,2);
+Iz = I(3,3);
+
+% Point 3 axis
+A(1:3,1:3) = [0, -(Iz - Iy)/Ix*n_earth, 0; -(Ix - Iz)/Iy*n_earth 0 0; 0,0,0];
+B(1:3,1:3) = diag([1/Ix 1/Iy 1/Iz]);
+Q = diag([10 10 20]);
+R = diag([1 1 1]);
+K1_point = lqr(A, B, Q, R);
+
+K2_point = K1_point.^2/2;
+    
+% Detumbling
+Q = eye(3); 
+R = (1/torque_max^2)*eye(3);
+
+K_detumbling = lqr(A,B,Q,R);
+
+% Point slew axis
+B = diag([1/Ix 1/Iy 1/Iz]) + A;
+Q = diag([10, 10, 10]);
+R = eye(3);
+
+K1_slew = lqr(A,B, Q, R);
+
+K2_slew = K1_slew.^2/2;
+
+K1_slew = 0.8;
+K2_slew = K1_slew.^2/2;
+
 %% RUN SIMULATION
 tic
-out = sim('SAD_project.slx');
+out = sim('SAD_project_full_mission');
 toc
 %% PLOTTING RESULT
 
@@ -257,10 +286,10 @@ legend('M_{GG}', 'M_{SRP}', 'M_{b}');
 fig2 = figure;
 hold on;
 grid on;
-plot(out.t, 1e9.*out.bn(:,1), '-b', 'LineWidth', 2);
-plot(out.t, 1e9.*out.bn(:,2), '-g', 'LineWidth', 2);
-plot(out.t, 1e9.*out.bn(:,3), '-r', 'LineWidth', 2);
-plot(out.t, 1e9.*vecnorm(out.bn,2,2), '-c', 'LineWidth', 2);
+plot(out.t(5:end), 1e9.*out.bn(5:end,1), '-b', 'LineWidth', 2);
+plot(out.t(5:end), 1e9.*out.bn(5:end,2), '-g', 'LineWidth', 2);
+plot(out.t(5:end), 1e9.*out.bn(5:end,3), '-r', 'LineWidth', 2);
+plot(out.t(5:end), 1e9.*vecnorm(out.bn(5:end,:),2,2), '-c', 'LineWidth', 2);
 
 xlabel(' time [s] ')
 ylabel(' B [nT]')
@@ -269,28 +298,15 @@ title('History of Magnetic Field B(r)')
 legend('Bx', 'By', 'Bz', 'Norm(B)');
 %%
 % ATTITUDE ERROR
-% plot figure of w
-fig3 = figure();
-wx_plot = plot(out.t, out.wb(:,1), '-b', 'LineWidth', 1);
-hold on
-grid on
-wy_plot = plot(out.t, out.wb(:,2), '-c', 'LineWidth', 1);
-wz_plot = plot(out.t, out.wb(:,3), '-g', 'LineWidth', 1);
-
-xlabel(' time [s] ')
-ylabel(' w [rad/s] ')
-title('Attitude Error')
-
-legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
 
 % MAG-3 SENSOR
 fig4 = figure;
 hold on;
 grid on;
-plot(out.t, 1e9.*out.b_sensor(:,1), '-b', 'LineWidth', 1);
-plot(out.t, 1e9.*out.b_sensor(:,2), '-g', 'LineWidth', 1);
-plot(out.t, 1e9.*out.b_sensor(:,3), '-r', 'LineWidth', 1);
-plot(out.t, 1e9.*vecnorm(out.b_sensor,2,2), '-c', 'LineWidth', 1);
+plot(out.t(2:end), 1e9.*out.b_sensor(2:end,1), '-b', 'LineWidth', 1);
+plot(out.t(2:end), 1e9.*out.b_sensor(2:end,2), '-g', 'LineWidth', 1);
+plot(out.t(2:end), 1e9.*out.b_sensor(2:end,3), '-r', 'LineWidth', 1);
+plot(out.t(2:end), 1e9.*vecnorm(out.b_sensor(2:end,:),2,2), '-c', 'LineWidth', 1);
 
 xlabel(' time [s] ')
 ylabel(' B [nT]')
@@ -298,8 +314,12 @@ title('Magnetic Field B(r) by sensor')
 
 legend('Bx', 'By', 'Bz', 'Norm(B)');
 
-% plot figure of w
+% plot figure of w 
 fig5 = figure();
+tiledlayout(3,1);
+
+% w true plot
+nexttile
 wx_plot = plot(out.t, out.w(:,1), '-b', 'LineWidth', 1);
 hold on
 grid on
@@ -310,7 +330,36 @@ xlabel(' time [s] ')
 ylabel(' w [rad/s] ')
 title('TRUE Angulary Velocity in time')
 
-legend([wx_plot, wy_plot, wz_plot], 'wx', 'wy', 'wz');
+legend([wx_plot, wy_plot, wz_plot], '\omega_x', '\omega_y', '\omega_z');
+
+% w estimated plot
+nexttile
+wx_plot = plot(out.t, out.w_est(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+wy_plot = plot(out.t, out.w_est(:,2), '-c', 'LineWidth', 1);
+wz_plot = plot(out.t, out.w_est(:,3), '-g', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' w [rad/s] ')
+title('Estimated Angulary Velocity in time')
+
+legend([wx_plot, wy_plot, wz_plot], '\omega_x', '\omega_y', '\omega_z');
+
+% error
+nexttile
+err_wb = abs(out.w - out.w_est);
+wx_plot = plot(out.t, err_wb(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+wy_plot = plot(out.t, err_wb(:,2), '-c', 'LineWidth', 1);
+wz_plot = plot(out.t, err_wb(:,3), '-g', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' w [rad/s] ')
+title('Absolute error in angular velocity in time')
+
+legend([wx_plot, wy_plot, wz_plot], '\Delta \omega_x', '\Delta \omega_y', '\Delta \omega_z');
 %%
 % reaction wheel
 % plot figure of RW angular velocity
@@ -322,11 +371,11 @@ hold on
 grid on
 wy_plot = plot(out.t, out.wr(:,2), '-c', 'LineWidth', 2);
 wz_plot = plot(out.t, out.wr(:,3), '-g', 'LineWidth', 2);
-plot(out.t, wMax_RW*ones(length(out.t)),'-r', 'LineWidth', 1);
-w_lim = plot(out.t, -wMax_RW*ones(length(out.t)),'-r', 'LineWidth', 1);
+plot(out.t, wMax_RW*ones(length(out.t),1),'-r', 'LineWidth', 1);
+w_lim = plot(out.t, -wMax_RW*ones(length(out.t),1),'-r', 'LineWidth', 1);
 
 xlabel(' time [s] ')
-ylabel(' w [rad/s] ')
+ylabel(' w [rpm] ')
 title('Reaction Wheel Angulary Velocity in time')
 
 legend([wx_plot, wy_plot, wz_plot, w_lim(1)], 'wx', 'wy', 'wz', 'Saturation limit');
@@ -344,11 +393,102 @@ ylabel(' M [Nm] ')
 title('Torque due to RW')
 
 legend([Mx_plot, My_plot, Mz_plot], 'Mx', 'My', 'Mz');
-%% ANIMATION PLOT
 
-% ancora da sistemare 
+%% Plot target
+
+% plot figure of q-target 
+fig7 = figure();
+tiledlayout(2,1);
+
+% q estimated vs q target true plot
+nexttile
+q1_plot = plot(out.t, out.q_error(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+q2_plot = plot(out.t, out.q_error(:,2), '-c', 'LineWidth', 1);
+q3_plot = plot(out.t, out.q_error(:,3), '-g', 'LineWidth', 1);
+q4_plot = plot(out.t, out.q_error(:,4), '-m', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' quaternion [-] ')
+title('Quaternion error between target and current position')
+
+legend([q1_plot q2_plot q3_plot q4_plot], 'q_e 1','q_e 2', 'q_e 3', 'q_e 4');
+
+% Rotation angle error plot
+nexttile
+wx_plot = plot(out.t, out.degree_target_error(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+wy_plot = plot(out.t, out.degree_target_error(:,2), '-c', 'LineWidth', 1);
+wz_plot = plot(out.t, out.degree_target_error(:,3), '-g', 'LineWidth', 1);
+
+xlabel(' time [s] ')
+ylabel(' \Delta angle [degree] ')
+title('Rotation error between target and current position')
+
+legend([wx_plot, wy_plot, wz_plot], '\omega_x', '\omega_y', '\omega_z');
+
+% track target and position
+% q estimated vs q target 
+figure8 = figure();
+tiledlayout(5,1);
+
+nexttile
+q_target_plot = plot(out.t, out.q_target(:,1), '-b', 'LineWidth', 1);
+hold on
+grid on
+q_est_plot = plot(out.t, out.q_est(:,1), '-c', 'LineWidth', 1);
+xlabel(' time [s] ')
+ylabel(' quaternion [-] ')
+title('Quaternion target and current position q1')
+legend([q_target_plot q_est_plot], 'q_1 target','q_1 estimated');
+
+nexttile
+q_target_plot = plot(out.t, out.q_target(:,2), '-b', 'LineWidth', 1);
+hold on
+grid on
+q_est_plot = plot(out.t, out.q_est(:,2), '-c', 'LineWidth', 1);
+xlabel(' time [s] ')
+ylabel(' quaternion [-] ')
+title('Quaternion target and current position q2')
+legend([q_target_plot q_est_plot], 'q_2 target','q_2 estimated');
+
+nexttile
+q_target_plot = plot(out.t, out.q_target(:,3), '-b', 'LineWidth', 1);
+hold on
+grid on
+q_est_plot = plot(out.t, out.q_est(:,3), '-c', 'LineWidth', 1);
+xlabel(' time [s] ')
+ylabel(' quaternion [-] ')
+title('Quaternion target and current position q3')
+legend([q_target_plot q_est_plot], 'q_3 target','q_3 estimated');
+
+nexttile
+q_target_plot = plot(out.t, out.q_target(:,4), '-b', 'LineWidth', 1);
+hold on
+grid on
+q_est_plot = plot(out.t, out.q_est(:,4), '-c', 'LineWidth', 1);
+xlabel(' time [s] ')
+ylabel(' quaternion [-] ')
+title('Quaternion target and current position q4')
+legend([q_target_plot q_est_plot], 'q_4 target','q_4 estimated');
+
+
+
+
+%% montecarlo analysis
 %{
-    ground Track
-    plot Orbit
-    Animation of satellite
+tf = 1000;
+t_step = 0.1;
+t_sensor = 5*t_step;
+N = 100;
+for i = 1:N
+    % random initial state
+    w0 = rand(3,1);
+    q0 = rand(4,1);
+    q0 = q0/norm(q0);
+
+    out = sim('SAD_project_full_mission');
+end
 %}

@@ -21,6 +21,12 @@ end
 theta=(90-theta)*pi/180;
 phi = phi*pi/180;
 a=6371.2;  % Reference radius used in IGRF
+days = (days - 7304.5);
+
+if days < 0
+    error('the time chosen must be after January 1, 2020')
+end
+
 % This section of the code simply reads in the g and h Schmidt
 % quasi-normalized coefficients
 gn = A1(:, 1); gm =A1(:, 2);
@@ -32,15 +38,10 @@ hvali = A2(:, 3); hsvi = A2(:, 4);
 
 g=zeros(N,N+1);
 h=zeros(N,N+1);
-%time = (days -7.3055e+03);
-time = days;
-if time < 0
-    error('the time chosen must be after January 1, 2020')
-end
 
-for x=1: sum(2:N+1)
-        g(gn(x),gm(x)+1) = gvali(x) + gsvi(x)*time/365;
-        h(hn(x),hm(x)+1) = hvali(x) + hsvi(x)*time/365;
+for x=1:sum(2:N+1)
+    g(gn(x),gm(x)+1) = gvali(x) + gsvi(x)*days/365;
+    h(hn(x),hm(x)+1) = hvali(x) + hsvi(x)*days/365;
 end
 % Initialize each of the variables
 % Br        B in the radial driection
